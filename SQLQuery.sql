@@ -50,7 +50,7 @@ with product_stats as(
 	 ),
 
 	 product_top_customer as (
-		select product_id,customer_id as top_customer, times_purchased_by_customer
+		select product_id,c.name as top_customer, times_purchased_by_customer
 		from (
 			select product_customer_stats.*,
 			ROW_NUMBER() over(partition by product_id 
@@ -58,6 +58,7 @@ with product_stats as(
 									   earliest_date asc,
 									   customer_id asc)  rn
 			from product_customer_stats) prod_cust_ranked
+			left outer join customers c on c.customer_id = prod_cust_ranked.customer_id
 			where rn =1),
 
 	avg_times_purchased_by_customers as(
