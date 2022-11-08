@@ -26,9 +26,14 @@ CREATE TABLE orders (order_id VARCHAR(255), date DATE, customer_id VARCHAR(255),
 CREATE TABLE customers (customer_id VARCHAR(255), name VARCHAR(255));
 
 ------- Indexes---------
+CREATE INDEX ix_products_id ON products (id);
+CREATE INDEX ix_orders_order_id ON orders (order_id);
+CREATE INDEX ix_orders_customer_id ON orders (customer_id);
+CREATE INDEX ix_orders_product_id ON orders(product_id);
+CREATE INDEX ix_customers_customer_id ON customers(customer_id);
 
-
-
+Rationale:
+Indexes are created on the primary/foreign key columns to speed up the query.
 ------- Query ----------
 */
 
