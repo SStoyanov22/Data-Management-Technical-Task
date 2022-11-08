@@ -2,18 +2,78 @@ import javax.xml.crypto.Data;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.text.DateFormat;
+import java.time.LocalDate;
 import java.util.*;
+import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.groupingBy;
 
 public class Main {
     public static void main(String[] args) {
+        System.out.println("Working Directory = " + System.getProperty("user.dir"));
+        var customers_data = readTsv(new File("sample_data/customers.tsv"));
+        var orders_data = readTsv(new File("sample_data/orders.tsv"));
+        var products_data = readTsv(new File("sample_data/products.tsv"));
 
-        var customers_data = tsvReader(new File("sample_data\\customers.tsv"));
-        System.out.println(customers_data);
+        List<OrderDTO> orders = orders_data.
+                stream().
+                map((row) -> new OrderDTO(row[0], LocalDate.parse(row[1]),row[2],row[3]))
+                .collect(Collectors
+                        .toList());
+        List<CustomerDTO> customers = customers_data
+                .stream()
+                .map((row) -> new CustomerDTO(row[0],row[1]))
+                .collect(Collectors
+                        .toList());
+        List<ProductDTO> products = products_data
+                .stream()
+                .map((row) -> new ProductDTO(row[0],row[1]))
+                .collect(Collectors.toList());
+
+        var productTotalPurchases = orders
+                .stream()
+                .collect(
+                        groupingBy(
+                                order -> order.product_id,
+                                Collectors.counting()
+                                        ));
+
+        var productTotalOrders =  orders
+                .stream()
+                .collect(Collectors.groupingBy(order -> order.product_id,
+                        Collectors.mapping(order -> order.order_id,
+                                Collectors.collectingAndThen(Collectors.toSet(), set->set.size()))));
+
+        var productTotalCustomers =  orders.stream()
+                .collect(Collectors.groupingBy(order -> order.product_id,
+                        Collectors.mapping(order -> order.customer_id,
+                                Collectors.collectingAndThen(Collectors.toSet(), set->set.size()))));
+
+        var  productCustomerPurchasesCount= orders.stream()
+                .collect(Collectors.groupingBy(order -> order.product_id,
+                        Collectors.groupingBy(order -> order.customer_id,
+                                Collectors.collectingAndThen(Collectors.toSet(), set->set.size()))));
+
+        var  productCustomerOrdersCount= orders.stream()
+                .collect(Collectors.groupingBy(order -> order.product_id,
+                        Collectors.groupingBy(order -> order.customer_id,
+                                Collectors.mapping(order -> order.order_id,
+                                        Collectors.collectingAndThen(Collectors.toSet(), set->set.size())))));
+        var  productCustomerEarliestOrder= orders.stream()
+                .collect(Collectors.groupingBy(order -> order.product_id,
+                        Collectors.groupingBy(order -> order.customer_id,
+                                Collectors.mapping(order -> order.date,
+                                        Collectors.collectingAndThen(Collectors.toSet(), set->set.size())))));
+
+
+        orders.forEach(c -> System.out.println(c.order_id + " " +c.customer_id + " " + c.product_id + " " + c.date));
+
     }
 
-   public static ArrayList<String[]> tsvReader(File test2) {
-        ArrayList<String[]> Data = new ArrayList<>(); //initializing a new ArrayList out of String[]'s
-        try (BufferedReader TSVReader = new BufferedReader(new FileReader(test2))) {
+   public static List<String[]>  readTsv(File file) {
+        List<String[]> Data = new ArrayList<>(); //initializing a new ArrayList out of String[]'s
+        try (BufferedReader TSVReader = new BufferedReader(new FileReader(file))) {
             String line = null;
             while ((line = TSVReader.readLine()) != null) {
                 String[] lineItems = line.split("\t"); //splitting the line and adding its items in String[]
@@ -25,3 +85,6 @@ public class Main {
         return Data;
     }
 }
+
+
+
