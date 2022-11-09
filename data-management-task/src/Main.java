@@ -1,12 +1,11 @@
-import javax.xml.crypto.Data;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.text.DateFormat;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static java.time.temporal.ChronoUnit.DAYS;
 import static java.util.stream.Collectors.groupingBy;
 
 public class Main {
@@ -36,38 +35,60 @@ public class Main {
                 .collect(
                         groupingBy(
                                 order -> order.product_id,
-                                Collectors.counting()
-                                        ));
-
-        var productTotalOrders =  orders
-                .stream()
-                .collect(Collectors.groupingBy(order -> order.product_id,
-                        Collectors.mapping(order -> order.order_id,
-                                Collectors.collectingAndThen(Collectors.toSet(), set->set.size()))));
+                                Collectors.counting()));
 
         var productTotalCustomers =  orders.stream()
-                .collect(Collectors.groupingBy(order -> order.product_id,
-                        Collectors.mapping(order -> order.customer_id,
-                                Collectors.collectingAndThen(Collectors.toSet(), set->set.size()))));
+                .collect(
+                        Collectors.groupingBy(
+                                order -> order.product_id,
+                                Collectors.mapping(
+                                        order -> order.customer_id,
+                                        Collectors.collectingAndThen(
+                                                Collectors.toSet(),
+                                                set->set.size()))));
 
-        var  productCustomerPurchasesCount= orders.stream()
-                .collect(Collectors.groupingBy(order -> order.product_id,
-                        Collectors.groupingBy(order -> order.customer_id,
-                                Collectors.collectingAndThen(Collectors.toSet(), set->set.size()))));
+        var  productEarliestOrders= orders.stream()
+                .collect(
+                        Collectors.groupingBy(
+                                order -> order.product_id,
+                                        Collectors.mapping(order -> order.date,
+                                                Collectors.collectingAndThen(
+                                                        Collectors.reducing((LocalDate d1, LocalDate d2) -> d1.isBefore(d2) ? d1 : d2),
+                                                        Optional::get))));
+        var  productLatestOrders= orders.stream()
+                .collect(
+                        Collectors.groupingBy(
+                                order -> order.product_id,
+                                        Collectors.mapping(order -> order.date,
+                                                Collectors.collectingAndThen(
+                                                        Collectors.reducing((LocalDate d1, LocalDate d2) -> d1.isBefore(d2) ? d1 : d2),
+                                                        Optional::get))));
+        var  productCustomerMinimumIds= orders.stream()
+                .collect(
+                        Collectors.groupingBy(
+                                order -> order.product_id,
+                                Collectors.mapping(
+                                        order -> order.customer_id,
+                                        Collectors.collectingAndThen(
+                                                Collectors.reducing((String d1, String d2) -> d1.compareTo(d2)<0 ? d1 : d2),
+                                                Optional::get))));
+        var outputList = new ArrayList<ProductOutput>();
+        for ( String product_id: productTotalPurchases.keySet()) {
+            var product_name = products.stream().filter(p -> p.product_id.equals(product_id)).findFirst().orElse(null).name;
+            var productTotalPurchase = productTotalPurchases.get(product_id);
+            var productTotalCustomer = productTotalCustomers.get(product_id);
+            var productEarliestOrderDate = productEarliestOrders.get(product_id);
+            var productLatestOrderDate = productLatestOrders.get(product_id);
+            var productCustomerWithMinimumId = productCustomerMinimumIds.get(product_id);
+            var firstCustomer = customers.stream().filter(c -> c.customer_id.equals(productCustomerWithMinimumId)).findFirst().orElse(null);
+            var daysBetween = DAYS.between(productEarliestOrderDate, productLatestOrderDate);
 
-        var  productCustomerOrdersCount= orders.stream()
-                .collect(Collectors.groupingBy(order -> order.product_id,
-                        Collectors.groupingBy(order -> order.customer_id,
-                                Collectors.mapping(order -> order.order_id,
-                                        Collectors.collectingAndThen(Collectors.toSet(), set->set.size())))));
-        var  productCustomerEarliestOrder= orders.stream()
-                .collect(Collectors.groupingBy(order -> order.product_id,
-                        Collectors.groupingBy(order -> order.customer_id,
-                                Collectors.mapping(order -> order.date,
-                                        Collectors.collectingAndThen(Collectors.toSet(), set->set.size())))));
+            //Create new product output
+            var newProductOutput = new ProductOutput(product_id,product_name,productTotalPurchase,productTotalCustomer,firstCustomer.name,daysBetween);
 
+            outputList.add(newProductOutput);
+        }
 
-        orders.forEach(c -> System.out.println(c.order_id + " " +c.customer_id + " " + c.product_id + " " + c.date));
 
     }
 
