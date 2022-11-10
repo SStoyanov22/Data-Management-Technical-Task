@@ -1,6 +1,5 @@
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -8,13 +7,31 @@ import java.util.stream.Collectors;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static java.util.stream.Collectors.groupingBy;
 
-public class Main {
+public class ProductsReport {
     public static void main(String[] args) {
-        System.out.println("Working Directory = " + System.getProperty("user.dir"));
-        var customers_data = readTsv(new File("sample_data/customers.tsv"));
-        var orders_data = readTsv(new File("sample_data/orders.tsv"));
-        var products_data = readTsv(new File("sample_data/products.tsv"));
+        //Get filenames
+        var products_filename = args[0];
+        var orders_filename = args[1];
+        var customers_filename = args[2];
+        var output_filename = args[3];
 
+        //Collect data into data structures
+        var products_data = TsvHelper.readTsv(new File(products_filename));
+        var orders_data = TsvHelper.readTsv(new File(orders_filename));
+        var customers_data = TsvHelper.readTsv(new File(customers_filename));
+
+        //Extract product report items to list
+        var extractedProductReportList = extract(customers_data, orders_data, products_data);
+
+        //Write product report items to list
+        try {
+            TsvHelper.writeTsv(output_filename,extractedProductReportList);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static List<ProductsReportItem> extract(List<String[]> customers_data, List<String[]> orders_data, List<String[]> products_data) {
         List<OrderDTO> orders = orders_data.
                 stream().
                 map((row) -> new OrderDTO(row[0], LocalDate.parse(row[1]),row[2],row[3]))
@@ -72,7 +89,7 @@ public class Main {
                                         Collectors.collectingAndThen(
                                                 Collectors.reducing((String d1, String d2) -> d1.compareTo(d2)<0 ? d1 : d2),
                                                 Optional::get))));
-        var outputList = new ArrayList<ProductOutput>();
+        var outputList = new ArrayList<ProductsReportItem>();
         for ( String product_id: productTotalPurchases.keySet()) {
             var product_name = products.stream().filter(p -> p.product_id.equals(product_id)).findFirst().orElse(null).name;
             var productTotalPurchase = productTotalPurchases.get(product_id);
@@ -80,31 +97,23 @@ public class Main {
             var productEarliestOrderDate = productEarliestOrders.get(product_id);
             var productLatestOrderDate = productLatestOrders.get(product_id);
             var productCustomerWithMinimumId = productCustomerMinimumIds.get(product_id);
-            var firstCustomer = customers.stream().filter(c -> c.customer_id.equals(productCustomerWithMinimumId)).findFirst().orElse(null);
+            var firstCustomer = customers.stream().filter(c -> {
+                return c.customer_id.equals(productCustomerWithMinimumId);
+            }).findFirst().orElse(null);
             var daysBetween = DAYS.between(productEarliestOrderDate, productLatestOrderDate);
 
             //Create new product output
-            var newProductOutput = new ProductOutput(product_id,product_name,productTotalPurchase,productTotalCustomer,firstCustomer.name,daysBetween);
+            var newProductOutput = new ProductsReportItem(product_id,product_name,productTotalPurchase,productTotalCustomer,firstCustomer.name,daysBetween);
 
             outputList.add(newProductOutput);
         }
 
+        outputList.sort((i1,i2)->(i1.total_customers > i2.total_customers) ? 1 : -1);
 
+        return outputList;
     }
 
-   public static List<String[]>  readTsv(File file) {
-        List<String[]> Data = new ArrayList<>(); //initializing a new ArrayList out of String[]'s
-        try (BufferedReader TSVReader = new BufferedReader(new FileReader(file))) {
-            String line = null;
-            while ((line = TSVReader.readLine()) != null) {
-                String[] lineItems = line.split("\t"); //splitting the line and adding its items in String[]
-                Data.add(lineItems); //adding the splitted line array to the ArrayList
-            }
-        } catch (Exception e) {
-            System.out.println("Something went wrong");
-        }
-        return Data;
-    }
+
 }
 
 
